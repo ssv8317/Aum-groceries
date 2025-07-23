@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # MongoDB for User Service
+  mongodb:
+    image: mongo:6.0
+    container_name: aum-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: aum_users
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - aum-network
+
+  # PostgreSQL for Product Service
+  postgresql:
+    image: postgres:15
+    container_name: aum-postgresql
+    restart: always
+    environment:
+      POSTGRES_DB: aum_products
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - aum-network
+
+  # MySQL for Order Service
+  mysql:
+    image: mysql:8.0
+    container_name: aum-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password123
+      MYSQL_DATABASE: aum_orders
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: password123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - aum-network
+
+  # Message Queue
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: aum-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - aum-network
+
+  # Service Discovery
+  consul:
+    image: consul:1.15
+    container_name: aum-consul
+    restart: always
+    command: consul agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0 -data-dir=/consul/data
+    ports:
+      - "8500:8500"
+    volumes:
+      - consul_data:/consul/data
+    networks:
+      - aum-network
+
+  # User Service (Node.js)
+  user-service:
+    build:
+      context: ../user-service
+      dockerfile: Dockerfile
+    container_name: aum-user-service
+    restart: always
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/aum_users?authSource=admin
+      JWT_SECRET: your-super-secret-jwt-key-here
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongodb
+      - consul
+      - rabbitmq
+    networks:
+      - aum-network
+
+  # Product Service (FastAPI)
+  product-service:
+    build:
+      context: ../product-service
+      dockerfile: Dockerfile
+    container_name: aum-product-service
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://admin:password123@postgresql:5432/aum_products
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgresql
+      - consul
+    volumes:
+      - ../product-service/data:/app/data
+    networks:
+      - aum-network
+
+  # Order Service (Spring Boot)
+  order-service:
+    build:
+      context: ../order-service
+      dockerfile: Dockerfile
+    container_name: aum-order-service
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/aum_orders
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password123
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: password123
+    ports:
+      - "8002:8080"
+    depends_on:
+      - mysql
+      - consul
+      - rabbitmq
+    networks:
+      - aum-network
+
+  # Frontend (React)
+  frontend:
+    build: .
+    container_name: aum-frontend
+    restart: always
+    ports:
+      - "3002:3000"
+    environment:
+      # Match the variable names used in the React code - Correct ports
+      - REACT_APP_USER_SERVICE_URL=http://localhost:3001
+      - REACT_APP_PRODUCT_SERVICE_URL=http://localhost:8001
+      - REACT_APP_ORDER_SERVICE_URL=http://localhost:8002
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    networks:
+      - aum-network
+
+volumes:
+  mongodb_data:
+  postgresql_data:
+  mysql_data:
+  rabbitmq_data:
+  consul_data:
+
+networks:
+  aum-network:
+    driver: bridge
