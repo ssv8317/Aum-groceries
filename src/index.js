@@ -8,7 +8,6 @@ import { ReactQueryDevtools } from 'react-query/devtools';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
-import { WebSocketProvider } from './contexts/WebSocketContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,7 +29,6 @@ root.render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <WebSocketProvider>
             <CartProvider>
               <App />
               <Toaster 
@@ -58,7 +56,6 @@ root.render(
                 }}
               />
             </CartProvider>
-          </WebSocketProvider>
         </AuthProvider>
       </BrowserRouter>
       {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}

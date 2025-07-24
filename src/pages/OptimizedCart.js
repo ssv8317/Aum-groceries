@@ -19,13 +19,11 @@ import {
   useRemoveCouponMutation 
 } from '../services/queries';
 import { useAuth } from '../contexts/AuthContext';
-import { useWebSocket } from '../contexts/WebSocketContext';
 import toast from 'react-hot-toast';
 
 const Cart = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { isConnected } = useWebSocket();
   const queryClient = useQueryClient();
   
   // React Query hooks
@@ -212,17 +210,7 @@ const Cart = () => {
             </p>
           </div>
           
-          {/* Connection Status */}
           <div className="flex items-center space-x-4">
-            <div className={`flex items-center space-x-2 text-sm ${
-              isConnected ? 'text-green-600' : 'text-yellow-600'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-green-500' : 'bg-yellow-500'
-              }`}></div>
-              <span>{isConnected ? 'Real-time sync' : 'Offline mode'}</span>
-            </div>
-            
             <button
               onClick={handleClearCart}
               disabled={clearCartMutation.isLoading}

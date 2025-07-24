@@ -1,22 +1,45 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { productService } from '../services/apiService';
+import { productService } from '../services/api';
 import ProductCard from '../components/Products/ProductCard';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
 
 const Home = () => {
-  const { data: featuredProducts, isLoading } = useQuery(
+  const { data: featuredProductsResponse, isLoading } = useQuery(
     'featuredProducts',
-    () => productService.getProducts({ limit: 8, featured: true }),
+    async () => {
+      const response = await productService.getProducts({ limit: 8 });
+      // Handle your product service API response format: {value: [...], Count: 55}
+      if (response.data && response.data.value && Array.isArray(response.data.value)) {
+        return response.data.value.slice(0, 8); // Get first 8 products as featured
+      } else if (response.data && Array.isArray(response.data)) {
+        return response.data.slice(0, 8);
+      } else if (Array.isArray(response)) {
+        return response.slice(0, 8);
+      }
+      return [];
+    },
     { staleTime: 5 * 60 * 1000 }
   );
 
-  const { data: categories } = useQuery(
+  const { data: categoriesResponse } = useQuery(
     'categories',
-    () => productService.getCategories(),
+    async () => {
+      const response = await productService.getCategories();
+      // Handle categories API response format
+      if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      } else if (Array.isArray(response)) {
+        return response;
+      }
+      return [];
+    },
     { staleTime: 10 * 60 * 1000 }
   );
+
+  const featuredProducts = featuredProductsResponse || [];
+  const categories = categoriesResponse || [];
 
   return (
     <div className="min-h-screen">

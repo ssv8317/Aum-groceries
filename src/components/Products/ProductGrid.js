@@ -1,36 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
-import { productService } from '../../services/apiService';
 import { StarIcon, ShoppingCartIcon, HeartIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 
-const ProductGrid = ({ searchQuery, category, sortBy }) => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+const ProductGrid = ({ products = [], searchQuery, category, sortBy }) => {
   const [wishlist, setWishlist] = useState(new Set());
   const { addToCart } = useCart();
-
-  useEffect(() => {
-    fetchProducts();
-  }, [searchQuery, category, sortBy]);
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const response = await productService.getProducts({
-        search: searchQuery,
-        category,
-        sortBy
-      });
-      // API returns products directly as array, not wrapped in data property
-      setProducts(response);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleWishlist = (productId) => {
     setWishlist(prev => {
@@ -47,23 +23,6 @@ const ProductGrid = ({ searchQuery, category, sortBy }) => {
   const handleAddToCart = (product) => {
     addToCart(product);
   };
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {[...Array(8)].map((_, index) => (
-          <div key={index} className="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
-            <div className="w-full h-48 bg-gray-300"></div>
-            <div className="p-4">
-              <div className="h-4 bg-gray-300 rounded mb-2"></div>
-              <div className="h-3 bg-gray-300 rounded mb-2"></div>
-              <div className="h-6 bg-gray-300 rounded"></div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

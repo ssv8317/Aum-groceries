@@ -1,36 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FunnelIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { productService } from '../../services/api';
 
-const ProductFilters = ({ onFilterChange, onSearchChange, onSortChange }) => {
+const ProductFilters = ({ filters: currentFilters, onFilterChange, onSearchChange, onSortChange }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [categories, setCategories] = useState([]);
   const [filters, setFilters] = useState({
     category: '',
     priceRange: '',
     rating: '',
-    inStock: false
+    inStock: false,
+    ...currentFilters
   });
 
-  const categories = [
-    'All Categories',
-    'Fruits & Vegetables',
-    'Dairy & Eggs',
-    'Meat & Seafood',
-    'Bakery',
-    'Beverages',
-    'Snacks & Confectionery',
-    'Pantry Staples',
-    'Frozen Foods',
-    'Personal Care',
-    'Household Items'
-  ];
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (currentFilters) {
+      setFilters(prev => ({ ...prev, ...currentFilters }));
+    }
+  }, [currentFilters]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await productService.getCategories();
+      // Handle your categories API response format
+      let categoriesData = [];
+      if (response.data && Array.isArray(response.data)) {
+        categoriesData = response.data;
+      } else if (Array.isArray(response)) {
+        categoriesData = response;
+      }
+      
+      // Add "All Categories" option at the beginning
+      const allCategories = [
+        { id: '', name: 'All Categories' },
+        ...categoriesData
+      ];
+      setCategories(allCategories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      // Fallback categories
+      setCategories([
+        { id: '', name: 'All Categories' },
+        { id: '1', name: 'Chips' },
+        { id: '2', name: 'Cookies' },
+        { id: '3', name: 'Dairy' },
+        { id: '4', name: 'Snacks' }
+      ]);
+    }
+  };
 
   const priceRanges = [
     { label: 'All Prices', value: '' },
-    { label: 'Under ₹50', value: '0-50' },
-    { label: '₹50 - ₹100', value: '50-100' },
-    { label: '₹100 - ₹200', value: '100-200' },
-    { label: '₹200 - ₹500', value: '200-500' },
-    { label: 'Above ₹500', value: '500+' }
+    { label: 'Under $5', value: '0-5' },
+    { label: '$5 - $10', value: '5-10' },
+    { label: '$10 - $20', value: '10-20' },
+    { label: '$20 - $50', value: '20-50' },
+    { label: 'Above $50', value: '50+' }
   ];
 
   const sortOptions = [
@@ -53,6 +82,7 @@ const ProductFilters = ({ onFilterChange, onSearchChange, onSortChange }) => {
       category: '',
       priceRange: '',
       rating: '',
+      sortBy: 'featured',
       inStock: false
     };
     setFilters(clearedFilters);
@@ -99,8 +129,8 @@ const ProductFilters = ({ onFilterChange, onSearchChange, onSortChange }) => {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
             >
               {categories.map((category) => (
-                <option key={category} value={category === 'All Categories' ? '' : category}>
-                  {category}
+                <option key={category.id || category.name} value={category.id}>
+                  {category.name}
                 </option>
               ))}
             </select>
@@ -148,7 +178,8 @@ const ProductFilters = ({ onFilterChange, onSearchChange, onSortChange }) => {
               Sort By
             </label>
             <select
-              onChange={(e) => onSortChange(e.target.value)}
+              value={filters.sortBy || 'featured'}
+              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
             >
               {sortOptions.map((option) => (

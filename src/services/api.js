@@ -6,7 +6,7 @@ const ORDER_SERVICE_URL = process.env.REACT_APP_ORDER_SERVICE_URL || 'http://loc
 const PRODUCT_SERVICE_URL = process.env.REACT_APP_PRODUCT_SERVICE_URL || 'http://localhost:8001';
 
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
+  baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -130,32 +130,35 @@ productApi.interceptors.response.use(
 
 // Auth Service - Updated for User Service API
 export const authService = {
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
-  getProfile: () => api.get('/users/profile'),
-  updateProfile: (data) => api.put('/users/profile', data),
+  login: (credentials) => api.post('/api/auth/login', credentials),
+  register: (userData) => api.post('/api/auth/register', userData),
+  getProfile: () => api.get('/api/users/profile'),
+  updateProfile: (data) => api.put('/api/users/profile', data),
   
   // Address Management
-  getAddresses: () => api.get('/users/addresses'),
-  addAddress: (addressData) => api.post('/users/addresses', addressData),
-  updateAddress: (addressId, addressData) => api.put(`/users/addresses/${addressId}`, addressData),
-  deleteAddress: (addressId) => api.delete(`/users/addresses/${addressId}`),
+  getAddresses: () => api.get('/api/users/addresses'),
+  addAddress: (addressData) => api.post('/api/users/addresses', addressData),
+  updateAddress: (addressId, addressData) => api.put(`/api/users/addresses/${addressId}`, addressData),
+  deleteAddress: (addressId) => api.delete(`/api/users/addresses/${addressId}`),
   
   // Admin functions
-  getAllUsers: (params = {}) => api.get('/users', { params }),
+  getAllUsers: (params = {}) => api.get('/api/users', { params }),
   
   // Health check
-  healthCheck: () => api.get('/health'),
+  healthCheck: () => api.get('/api/health'),
 };
 
 // Product Service (uses Product Service API)
 export const productService = {
-  getProducts: (params = {}) => productApi.get('/products/', { params }),
-  getProduct: (id) => productApi.get(`/products/${id}/`),
-  getCategories: () => productApi.get('/categories/'),
-  getCategory: (id) => productApi.get(`/categories/${id}/`),
-  getProductsByCategory: (categoryId) => productApi.get(`/products/?category_id=${categoryId}`),
-  searchProducts: (query) => productApi.get(`/products/?search=${query}`),
+  getProducts: (params = {}) => productApi.get('/products', { params }),
+  getProduct: (id) => productApi.get(`/products/${id}`),
+  getCategories: () => productApi.get('/categories'),
+  getCategory: (id) => productApi.get(`/categories/${id}`),
+  getProductsByCategory: (categoryId) => productApi.get(`/products`, { params: { category_id: categoryId } }),
+  searchProducts: (query) => productApi.get(`/products`, { params: { search: query } }),
+  // Health check for product service
+  healthCheck: () => productApi.get('/health'),
+  // Note: Reviews might not be implemented in your current product service
   getProductReviews: (productId) => productApi.get(`/products/${productId}/reviews/`),
   addProductReview: (productId, review) => productApi.post(`/products/${productId}/reviews/`, review),
 };
@@ -291,7 +294,8 @@ export const deliveryService = {
 // WebSocket Service for real-time updates
 export const websocketService = {
   connect: (userId) => {
-    const ws = new WebSocket(`ws://localhost:8080/ws?userId=${userId}`);
+    // Use the correct order service port
+    const ws = new WebSocket(`ws://localhost:8002/ws?userId=${userId}`);
     return ws;
   },
   

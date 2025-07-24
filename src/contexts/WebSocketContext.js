@@ -25,6 +25,12 @@ export const WebSocketProvider = ({ children }) => {
 
   const connect = () => {
     if (!isAuthenticated || !user?.userId) {
+      console.log('WebSocket: Not authenticated or no user ID');
+      return;
+    }
+
+    // Don't try to reconnect if we're already connected
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       return;
     }
 

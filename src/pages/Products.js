@@ -5,8 +5,11 @@ import ProductFilters from '../components/Products/ProductFilters';
 import { productService } from '../services/api';
 
 const Products = () => {
+  console.log('🎯 PRODUCTS COMPONENT LOADED - VERSION 2.0');
+  
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]); // Store all products
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
@@ -18,42 +21,149 @@ const Products = () => {
     inStock: false
   });
 
+  // Fetch products only once on component mount
   useEffect(() => {
     fetchProducts();
-  }, [filters]);
+  }, []);
 
-  const fetchProducts = async () => {
+  // No need for client-side filtering useEffect anymore - backend handles filtering
+
+  const fetchProducts = async (filterParams = {}) => {
     try {
       setLoading(true);
       setError(null);
       
-      const params = {};
-      if (filters.search) params.search = filters.search;
-      if (filters.category) params.category_id = filters.category;
+      // Build query parameters for backend filtering
+      const queryParams = {};
       
-      const response = await productService.getProducts(params);
+      // Add category filter to backend request
+      if (filterParams.category || filters.category) {
+        const cat = filterParams.category || filters.category;
+        queryParams.category_id = Number(cat); // Ensure it's a number
+      }
       
-      // Handle backend API response format
+      // Add search filter to backend request
+      if (filterParams.search || filters.search) {
+        queryParams.search = filterParams.search || filters.search;
+      }
+      
+      // Add price filters to backend request
+      if (filterParams.priceRange || filters.priceRange) {
+        const priceRange = filterParams.priceRange || filters.priceRange;
+        if (priceRange.includes('-')) {
+          const [min, max] = priceRange.split('-').map(num => parseFloat(num));
+          queryParams.min_price = min;
+          if (max) queryParams.max_price = max;
+        } else if (priceRange.includes('+')) {
+          const min = parseFloat(priceRange.replace('+', ''));
+          queryParams.min_price = min;
+        }
+      }
+      
+      // Add stock filter to backend request
+      if (filterParams.inStock || filters.inStock) {
+        queryParams.in_stock_only = true;
+      }
+      
+      console.log('🚀 Fetching products with backend filtering:', queryParams);
+      
+      // Fetch products with backend filtering
+      const response = await productService.getProducts(queryParams);
+      
+      // Handle various response formats from product service API
       let productsData = [];
-      if (response.data && Array.isArray(response.data)) {
-        productsData = response.data;
-      } else if (response && Array.isArray(response)) {
+      
+      // Check for axios response structure: response.data contains the API response
+      if (response.data) {
+        // Backend returns: { value: [...], Count: N }
+        if (response.data.value && Array.isArray(response.data.value)) {
+          productsData = response.data.value;
+        }
+        // Sometimes backend might return array directly
+        else if (Array.isArray(response.data)) {
+          productsData = response.data;
+        }
+      }
+      // Fallback: direct array response
+      else if (Array.isArray(response)) {
         productsData = response;
       }
       
-      setProducts(productsData);
+      console.log(`✅ Loaded ${productsData.length} products from API (backend filtered)`);
+      if (productsData.length > 0) {
+        console.log('🔍 Sample product structure:', {
+          name: productsData[0].name,
+          category_id: productsData[0].category_id,
+          category: productsData[0].category
+        });
+      }
+      
+      // Apply only client-side sorting (backend handles filtering)
+      const sortedProducts = applySorting(productsData, filterParams.sortBy || filters.sortBy);
+      setProducts(sortedProducts);
+      
+      // Also store all products for reference (though we'll use backend filtering now)
+      setAllProducts(productsData);
     } catch (err) {
       console.error('Error fetching products:', err);
       setError(err.response?.data?.message || 'Failed to load products');
       // Fallback to empty array
       setProducts([]);
+      setAllProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Function to apply only sorting on the frontend (backend handles filtering)
+  const applySorting = (products, sortBy) => {
+    console.log('🔄 Applying client-side sorting:', sortBy);
+    
+    if (!sortBy || sortBy === 'featured') {
+      console.log('Using featured/default order (no sorting applied)');
+      return products;
+    }
+    
+    const sorted = [...products];
+    
+    console.log('Applying sort:', sortBy);
+    console.log('Products before sorting:', sorted.slice(0, 3).map(p => `${p.name} - $${p.price}`));
+    
+    sorted.sort((a, b) => {
+      switch (sortBy) {
+        case 'price-asc':
+          return parseFloat(a.price) - parseFloat(b.price);
+        case 'price-desc':
+          return parseFloat(b.price) - parseFloat(a.price);
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'newest':
+          return new Date(b.created_at || '2024-01-01') - new Date(a.created_at || '2024-01-01');
+        case 'rating-desc':
+          // Placeholder for when ratings are implemented
+          return 0;
+        default:
+          return 0;
+      }
+    });
+    
+    console.log('Products after sorting:', sorted.slice(0, 3).map(p => `${p.name} - $${p.price}`));
+    return sorted;
+  };
+
   const handleFilterChange = (newFilters) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
+    console.log('🔄 handleFilterChange called with:', newFilters);
+    
+    // Update filters state
+    setFilters(prev => {
+      const updated = { ...prev, ...newFilters };
+      console.log('🔄 Updated filters state:', updated);
+      
+      // Fetch products with new backend filtering
+      fetchProducts(updated);
+      
+      return updated;
+    });
     
     // Update URL params
     const params = new URLSearchParams();
@@ -109,6 +219,7 @@ const Products = () => {
       </div>
 
       <ProductFilters
+        filters={filters}
         onFilterChange={handleFilterChange}
         onSearchChange={handleSearchChange}
         onSortChange={handleSortChange}
@@ -128,6 +239,7 @@ const Products = () => {
           </div>
           
           <ProductGrid
+            products={products}
             searchQuery={filters.search}
             category={filters.category}
             sortBy={filters.sortBy}
