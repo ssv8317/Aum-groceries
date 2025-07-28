@@ -165,17 +165,19 @@ export const productService = {
 
 // Order Service (using order backend API)
 export const orderService = {
-  getOrders: (params = {}) => orderApi.get('/api/orders', { params }),
-  getOrder: (id) => orderApi.get(`/api/orders/${id}`),
-  createOrder: (orderData) => orderApi.post('/api/orders', orderData),
-  updateOrder: (id, data) => orderApi.put(`/api/orders/${id}`, data),
-  cancelOrder: (id) => orderApi.put(`/api/orders/${id}/cancel`),
-  getOrderHistory: (userId) => orderApi.get(`/api/orders/user/${userId}`),
-  trackOrder: (orderId) => orderApi.get(`/api/orders/${orderId}/track`),
-  confirmOrder: (orderId) => orderApi.put(`/api/orders/${orderId}/confirm`),
-  assignDelivery: (orderId, agentId) => orderApi.put(`/api/orders/${orderId}/assign`, { agentId }),
-  updateOrderStatus: (orderId, status) => orderApi.put(`/api/orders/${orderId}/status`, { status }),
-  getOrderAnalytics: () => orderApi.get('/api/orders/analytics'),
+  getOrders: (params = {}) => orderApi.get('', { params }),
+  getOrder: (id) => orderApi.get(`/${id}`),
+  createOrder: (orderData) => orderApi.post('', orderData),
+  createOrderWithPayment: (orderData) => orderApi.post('/with-payment', orderData),
+  updateOrder: (id, data) => orderApi.put(`/${id}`, data),
+  cancelOrder: (id) => orderApi.put(`/${id}/cancel`),
+  assignAgent: (orderId, agentId) => orderApi.put(`/${orderId}/assign-agent`, { agentId }),
+  updateOrderStatus: (orderId, status) => orderApi.put(`/${orderId}/status`, { status }),
+  getOrderHistory: (userId) => orderApi.get(`/user/${userId}`),
+  trackOrder: (orderId) => orderApi.get(`/${orderId}/track`),
+  confirmOrder: (orderId) => orderApi.put(`/${orderId}/confirm`),
+  getOrderAnalytics: () => orderApi.get('/analytics'),
+  healthCheck: () => orderApi.get('/health'),
 };
 
 // Payment Service
@@ -195,7 +197,7 @@ export const cartService = {
   // Get user's cart
   getCart: async () => {
     try {
-      const response = await orderApi.get('/api/orders/cart');
+      const response = await orderApi.get('/cart');
       return response.data;
     } catch (error) {
       console.error('Failed to get cart:', error);
@@ -207,12 +209,16 @@ export const cartService = {
     }
   },
 
-  // Add item to cart
-  addToCart: async (productId, quantity = 1) => {
+  // Add item to cart (updated to accept product object)
+  addToCart: async (product) => {
     try {
-      const response = await orderApi.post('/api/orders/cart/items', {
-        productId: productId,
-        quantity: quantity
+      const response = await orderApi.post('/cart/items', {
+        productId: product.id,
+        productName: product.name,
+        productSku: product.sku,
+        quantity: product.quantity || 1,
+        unitPrice: product.price,
+        unit: product.unit
       });
       return response.data;
     } catch (error) {
@@ -222,9 +228,10 @@ export const cartService = {
   },
 
   // Update cart item quantity
-  updateCartItem: async (productId, quantity) => {
+  // NOTE: itemId must be the cart item ID returned from the backend, not the product ID.
+  updateCartItem: async (cartItemId, quantity) => {
     try {
-      const response = await orderApi.put(`/api/orders/cart/items/${productId}`, {
+      const response = await orderApi.put(`/cart/items/${cartItemId}`, {
         quantity: quantity
       });
       return response.data;
@@ -235,9 +242,9 @@ export const cartService = {
   },
 
   // Remove item from cart
-  removeFromCart: async (productId) => {
+  removeFromCart: async (itemId) => {
     try {
-      const response = await orderApi.delete(`/api/orders/cart/items/${productId}`);
+      const response = await orderApi.delete(`/cart/items/${itemId}`);
       return response.data;
     } catch (error) {
       console.error('Failed to remove from cart:', error);
@@ -248,7 +255,7 @@ export const cartService = {
   // Clear entire cart
   clearCart: async () => {
     try {
-      const response = await orderApi.delete('/api/orders/cart');
+      const response = await orderApi.delete('/cart');
       return response.data;
     } catch (error) {
       console.error('Failed to clear cart:', error);
@@ -257,9 +264,10 @@ export const cartService = {
   },
 
   // Additional cart functions for compatibility
-  applyCoupon: (couponCode) => orderApi.post('/api/orders/cart/coupon', { couponCode }),
-  removeCoupon: () => orderApi.delete('/api/orders/cart/coupon'),
-  getCartSummary: () => orderApi.get('/api/orders/cart/summary'),
+  applyCoupon: (couponCode) => orderApi.post('/cart/coupon', { couponCode }),
+  removeCoupon: () => orderApi.delete('/cart/coupon'),
+  getCartSummary: () => orderApi.get('/cart/summary'),
+  checkout: () => orderApi.post('/cart/checkout'),
 };
 
 // User Service

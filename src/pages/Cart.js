@@ -157,10 +157,10 @@ const Cart = () => {
                     />
                     
                     <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-800">{item.name}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                      <h3 className="text-lg font-medium text-gray-800">{item.productName}</h3>
+                      <p className="text-sm text-gray-600 mt-1">SKU: {item.productSku} | Unit: {item.unit}</p>
                       <div className="flex items-center mt-2">
-                        <span className="text-lg font-bold text-primary-600">₹{item.price}</span>
+                        <span className="text-lg font-bold text-primary-600">₹{item.unitPrice}</span>
                         {item.originalPrice && (
                           <span className="text-sm text-gray-500 line-through ml-2">
                             ₹{item.originalPrice}
@@ -193,7 +193,7 @@ const Cart = () => {
                     
                     <div className="text-right">
                       <p className="text-lg font-bold text-gray-800">
-                        ₹{(item.price * item.quantity).toFixed(2)}
+                        ₹{Number(item.totalPrice).toFixed(2)}
                       </p>
                       <button
                         onClick={() => removeFromCart(item.id)}

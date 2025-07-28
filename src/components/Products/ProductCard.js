@@ -4,20 +4,41 @@ import { useCart } from '../../contexts/CartContext';
 import { ShoppingCartIcon, PlusIcon, MinusIcon } from '@heroicons/react/24/outline';
 
 const ProductCard = ({ product }) => {
-  const { addToCart, isInCart, getItemQuantity, updateQuantity } = useCart();
+
+  const { addToCart, items, isInCart, getItemQuantity, updateQuantity } = useCart();
   const quantity = getItemQuantity(product.id);
 
+  // Find the cart item for this product (if in cart)
+  const cartItem = items.find(item => item.productId === product.id || item.id === product.id);
+  const cartItemId = cartItem ? cartItem.id : null;
+
   const handleAddToCart = () => {
-    addToCart(product);
+    // Ensure all required fields are present
+    const completeProduct = {
+      id: product.id,
+      name: product.name || '',
+      sku: product.sku || '',
+      price: product.price || 0,
+      unit: product.unit || '',
+      quantity: 1,
+      description: product.description || '',
+      image: product.image || '',
+      stock_quantity: product.stock_quantity || 0
+    };
+    addToCart(completeProduct);
   };
 
   const handleIncrement = () => {
-    updateQuantity(product.id, quantity + 1);
+    console.log('Increment clicked:', { cartItem, cartItemId, quantity });
+    if (cartItemId) {
+      updateQuantity(cartItemId, quantity + 1);
+    }
   };
 
   const handleDecrement = () => {
-    if (quantity > 1) {
-      updateQuantity(product.id, quantity - 1);
+    console.log('Decrement clicked:', { cartItem, cartItemId, quantity });
+    if (cartItemId && quantity > 1) {
+      updateQuantity(cartItemId, quantity - 1);
     }
   };
 
@@ -34,18 +55,18 @@ const ProductCard = ({ product }) => {
       <div className="p-4">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           <Link to={`/products/${product.id}`} className="hover:text-primary-600 transition-colors">
-            {product.name}
+            {product.productName || product.name}
           </Link>
         </h3>
         
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {product.description}
+          SKU: {product.productSku || product.sku} | Unit: {product.unit}
         </p>
         
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
             <span className="text-xl font-bold text-primary-600">
-              ₹{product.price}
+              ₹{product.unitPrice !== undefined ? product.unitPrice : product.price}
             </span>
             <span className="text-sm text-gray-500">
               per {product.unit}
@@ -67,15 +88,10 @@ const ProductCard = ({ product }) => {
           {!isInCart(product.id) ? (
             <button
               onClick={handleAddToCart}
-              disabled={product.stock_quantity === 0}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                product.stock_quantity === 0
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-primary-600 text-white hover:bg-primary-700'
-              }`}
+              className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors bg-primary-600 text-white hover:bg-primary-700"
             >
               <ShoppingCartIcon className="h-4 w-4" />
-              <span>{product.stock_quantity === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
+              <span>Add to Cart</span>
             </button>
           ) : (
             <div className="flex items-center space-x-2">

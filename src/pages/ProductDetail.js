@@ -17,7 +17,8 @@ const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const [product, setProduct] = useState(null);
+  const [
+    product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -25,11 +26,24 @@ const ProductDetail = () => {
   const [reviews, setReviews] = useState([]);
   const [relatedProducts, setRelatedProducts] = useState([]);
 
+
+  const [cartTotal, setCartTotal] = useState(null);
+
   useEffect(() => {
     fetchProduct();
     fetchReviews();
     fetchRelatedProducts();
+    fetchCartTotal();
   }, [id]);
+
+  const fetchCartTotal = async () => {
+    try {
+      const cart = await require('../services/api').cartService.getCart();
+      setCartTotal(cart.total);
+    } catch (error) {
+      setCartTotal(null);
+    }
+  };
 
   const fetchProduct = async () => {
     try {
@@ -62,8 +76,10 @@ const ProductDetail = () => {
     }
   };
 
-  const handleAddToCart = () => {
-    addToCart({ ...product, quantity });
+
+  const handleAddToCart = async () => {
+    await addToCart({ ...product, quantity });
+    await fetchCartTotal();
   };
 
   const handleQuantityChange = (newQuantity) => {
@@ -171,6 +187,7 @@ const ProductDetail = () => {
 
           {/* Price */}
           <div className="flex items-center space-x-4">
+            <span className="text-2xl text-gray-700">Unit Price:</span>
             <span className="text-4xl font-bold text-primary-600">₹{product.price}</span>
             {product.originalPrice && (
               <span className="text-xl text-gray-500 line-through">₹{product.originalPrice}</span>
@@ -180,6 +197,13 @@ const ProductDetail = () => {
                 {product.discount}% OFF
               </span>
             )}
+          </div>
+          {/* Total Price (from backend) */}
+          <div className="flex items-center space-x-4 mt-2">
+            <span className="text-lg text-gray-700">Total Price (from backend):</span>
+            <span className="text-2xl font-bold text-green-700">
+              {cartTotal !== null ? `₹${cartTotal.toFixed(2)}` : '—'}
+            </span>
           </div>
 
           {/* Quantity Selector */}
@@ -207,15 +231,10 @@ const ProductDetail = () => {
           <div className="flex space-x-4">
             <button
               onClick={handleAddToCart}
-              disabled={!product.inStock}
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-6 rounded-md font-medium transition-colors duration-200 ${
-                product.inStock
-                  ? 'bg-primary-600 text-white hover:bg-primary-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
+              className="flex-1 flex items-center justify-center space-x-2 py-3 px-6 rounded-md font-medium transition-colors duration-200 bg-primary-600 text-white hover:bg-primary-700"
             >
               <ShoppingCartIcon className="h-5 w-5" />
-              <span>{product.inStock ? 'Add to Cart' : 'Out of Stock'}</span>
+              <span>Add to Cart</span>
             </button>
             
             <button

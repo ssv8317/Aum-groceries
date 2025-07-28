@@ -28,7 +28,7 @@ export const useAddToCartMutation = () => {
   const queryClient = useQueryClient();
   
   return useMutation(
-    ({ productId, quantity }) => cartService.addToCart(productId, quantity),
+    (product) => cartService.addToCart(product),
     {
       onSuccess: (data, variables) => {
         // Invalidate and refetch cart

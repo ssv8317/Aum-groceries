@@ -141,37 +141,18 @@ export const CartProvider = ({ children }) => {
     setLoading(true);
     try {
       console.log('Adding to cart:', product.id, quantity);
-      
-      // Add to backend cart
-      await cartService.addToCart(product.id, quantity);
-      
-      // Update local state optimistically
-      setCartItems(prevItems => {
-        const existingItem = prevItems.find(item => item.id === product.id);
-        
-        if (existingItem) {
-          const updatedItems = prevItems.map(item =>
-            item.id === product.id
-              ? { ...item, quantity: item.quantity + quantity }
-              : item
-          );
-          toast.success(`Updated ${product.name} quantity in cart`);
-          return updatedItems;
-        } else {
-          const newItem = {
-            id: product.id,
-            productId: product.id,
-            name: product.name,
-            description: product.description,
-            price: parseFloat(product.price || 0),
-            image: product.image,
-            quantity: quantity
-          };
-          toast.success(`Added ${product.name} to cart`);
-          return [...prevItems, newItem];
-        }
+      // Add to backend cart with full product object
+      await cartService.addToCart({
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        price: product.price,
+        unit: product.unit,
+        quantity
       });
-      
+      // Always reload cart from backend to get correct cart item data
+      await loadCart();
+      toast.success(`Added/updated ${product.name} in cart`);
       // Send real-time update via WebSocket
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         websocketService.sendMessage(wsRef.current, {
@@ -180,12 +161,10 @@ export const CartProvider = ({ children }) => {
           quantity: quantity
         });
       }
-      
     } catch (error) {
       console.error('Failed to add to cart:', error);
       setError('Failed to add item to cart');
       toast.error('Failed to add item to cart. Please try again.');
-      
       // Reload cart to ensure consistency
       await loadCart();
     } finally {
@@ -193,7 +172,8 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const removeFromCart = async (productId) => {
+  // Remove cart item by cart item id
+  const removeFromCart = async (cartItemId) => {
     if (!isAuthenticated || !isOnline) {
       toast.error('Unable to remove item. Please check your connection.');
       return;
@@ -202,30 +182,21 @@ export const CartProvider = ({ children }) => {
     setLoading(true);
     try {
       // Remove from backend
-      await cartService.removeFromCart(productId);
-      
-      // Update local state
-      setCartItems(prevItems => {
-        const item = prevItems.find(item => item.id === productId);
-        if (item) {
-          toast.success(`Removed ${item.name} from cart`);
-        }
-        return prevItems.filter(item => item.id !== productId);
-      });
-
+      await cartService.removeFromCart(cartItemId);
+      // Always reload cart from backend to get correct cart item data
+      await loadCart();
+      toast.success('Removed item from cart');
       // Send real-time update
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         websocketService.sendMessage(wsRef.current, {
           type: 'CART_ITEM_REMOVED',
-          productId: productId
+          cartItemId: cartItemId
         });
       }
-
     } catch (error) {
       console.error('Failed to remove from cart:', error);
       setError('Failed to remove item from cart');
       toast.error('Failed to remove item. Please try again.');
-      
       // Reload cart to ensure consistency
       await loadCart();
     } finally {
@@ -233,43 +204,36 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const updateCartItem = async (productId, quantity) => {
+  // Update cart item by cart item id
+  const updateCartItem = async (cartItemId, quantity) => {
     if (!isAuthenticated || !isOnline) {
       toast.error('Unable to update item. Please check your connection.');
       return;
     }
 
     if (quantity <= 0) {
-      await removeFromCart(productId);
+      await removeFromCart(cartItemId);
       return;
     }
 
     setLoading(true);
     try {
       // Update backend
-      await cartService.updateCartItem(productId, quantity);
-      
-      // Update local state
-      setCartItems(prevItems =>
-        prevItems.map(item =>
-          item.id === productId ? { ...item, quantity } : item
-        )
-      );
-
+      await cartService.updateCartItem(cartItemId, quantity);
+      // Always reload cart from backend to get correct cart item data
+      await loadCart();
       // Send real-time update
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         websocketService.sendMessage(wsRef.current, {
           type: 'CART_ITEM_UPDATED',
-          productId: productId,
+          cartItemId: cartItemId,
           quantity: quantity
         });
       }
-
     } catch (error) {
       console.error('Failed to update cart item:', error);
       setError('Failed to update item quantity');
       toast.error('Failed to update quantity. Please try again.');
-      
       // Reload cart to ensure consistency
       await loadCart();
     } finally {
@@ -285,36 +249,32 @@ export const CartProvider = ({ children }) => {
 
     setLoading(true);
     try {
-      // Clear backend cart
+      // Call backend to clear the cart
       await cartService.clearCart();
-      
-      // Update local state
-      setCartItems([]);
-      setAppliedCoupon(null);
-      toast.success('Cart cleared');
 
-      // Send real-time update
+      // Always reload cart from backend to get latest data
+      await loadCart();
+
+      // Send real-time update for cart cleared
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         websocketService.sendMessage(wsRef.current, {
           type: 'CART_CLEARED'
         });
       }
 
+      toast.success('Cart cleared');
     } catch (error) {
       console.error('Failed to clear cart:', error);
       setError('Failed to clear cart');
       toast.error('Failed to clear cart. Please try again.');
+      // Reload cart to ensure consistency
+      await loadCart();
     } finally {
       setLoading(false);
     }
   };
 
   const applyCoupon = async (couponCode) => {
-    if (!isAuthenticated || !isOnline) {
-      toast.error('Unable to apply coupon. Please check your connection.');
-      throw new Error('Offline or not authenticated');
-    }
-
     setLoading(true);
     try {
       // Apply coupon via backend
@@ -379,26 +339,29 @@ export const CartProvider = ({ children }) => {
 
   // Calculated values
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
-  const subtotal = cartItems.reduce((total, item) => total + (parseFloat(item.price || 0) * item.quantity), 0);
+  // Use backend-calculated totalPrice for each item for subtotal
+  const subtotal = cartItems.reduce((total, item) => total + (parseFloat(item.totalPrice || 0)), 0);
+  // Optionally, if you want to show per-item price, use item.unitPrice
   const taxes = subtotal * 0.08; // 8% tax
   const shippingCost = subtotal > 50 ? 0 : 5.99; // Free shipping over $50
-  
+
   let discount = 0;
   if (appliedCoupon) {
     discount = appliedCoupon.type === 'percentage' 
       ? subtotal * appliedCoupon.discount 
       : appliedCoupon.discount;
   }
-  
+
   const total = Math.max(0, subtotal + taxes + shippingCost - discount);
   const isEmpty = cartItems.length === 0;
 
   // Legacy functions for backward compatibility
   const getTotalItems = () => totalItems;
   const getTotalPrice = () => subtotal;
-  const isInCart = (productId) => cartItems.some(item => item.id === productId);
+  // Match by productId for isInCart and getItemQuantity
+  const isInCart = (productId) => cartItems.some(item => item.productId === productId || item.id === productId);
   const getItemQuantity = (productId) => {
-    const item = cartItems.find(item => item.id === productId);
+    const item = cartItems.find(item => item.productId === productId || item.id === productId);
     return item ? item.quantity : 0;
   };
 
